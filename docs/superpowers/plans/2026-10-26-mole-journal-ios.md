@@ -1087,13 +1087,11 @@ final class CaptureFlowTests: XCTestCase {
         XCTAssertEqual(reviewMessage(outcome), Copy.outlinesUnavailable)
     }
 
-    func testAdvanceFromInstructionReachesReviewAfterAccept() {
+    func testAdvanceFromInstructionReachesCameraWithGhost() {
         var step = initialCaptureStep(previousImageFilename: "last.jpg")
         step = advanceToCamera(step)
         XCTAssertEqual(step.phase, .camera)
         XCTAssertTrue(step.showsGhost)
-        step.phase = .review
-        XCTAssertEqual(step.phase, .review)
     }
 }
 ```
