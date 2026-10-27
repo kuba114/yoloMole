@@ -1,0 +1,32 @@
+name: MoleJournal
+options:
+  bundleIdPrefix: com.yolomole
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  SWIFT_VERSION: "5.0"
+  IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+targets:
+  MoleJournal:
+    type: application
+    platform: iOS
+    sources:
+      - MoleJournal
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.yolomole.MoleJournal
+      GENERATE_INFOPLIST_FILE: YES
+      INFOPLIST_KEY_NSCameraUsageDescription: "The camera is required to photograph a body area."
+      INFOPLIST_KEY_UILaunchScreen_Generation: YES
+      CODE_SIGN_ENTITLEMENTS: MoleJournal/MoleJournal.entitlements
+      TARGETED_DEVICE_FAMILY: "1"
+  MoleJournalTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - MoleJournalTests
+    dependencies:
+      - target: MoleJournal
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+      TEST_HOST: "$(BUILT_PRODUCTS_DIR)/MoleJournal.app/MoleJournal"
+      BUNDLE_LOADER: "$(TEST_HOST)"
