@@ -236,3 +236,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Mole journal model gate
+model-check/images/
+*.mlpackage
