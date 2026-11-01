@@ -273,3 +273,6 @@ final class JournalStore {
         try context.save()
     }
 }
+
+extension BodyAreaRecord: Identifiable {}
+extension CheckInRecord: Identifiable {}
