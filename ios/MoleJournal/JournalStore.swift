@@ -276,3 +276,4 @@ final class JournalStore {
 
 extension BodyAreaRecord: Identifiable {}
 extension CheckInRecord: Identifiable {}
+extension MoleBoxRecord: Identifiable {}

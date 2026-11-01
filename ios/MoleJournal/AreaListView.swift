@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UIKit
 
 func canSaveAreaName(_ name: String) -> Bool {
     !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -69,6 +70,15 @@ final class JournalStoreModel {
     func checkIns(areaID: UUID) -> [CheckInRecord] {
         (try? store.checkIns(areaID: areaID, sessionAppleID: sessionAppleID)) ?? []
     }
+
+    func setBoxHidden(boxID: UUID, hidden: Bool) {
+        try? store.setBoxHidden(boxID: boxID, sessionAppleID: sessionAppleID, hidden: hidden)
+        reload()
+    }
+
+    func imageURL(filename: String) -> URL {
+        store.imageURL(filename: filename)
+    }
 }
 
 struct AreaDetailView: View {
@@ -78,8 +88,55 @@ struct AreaDetailView: View {
     var body: some View {
         let items = store.checkIns(areaID: areaID)
         List(items) { item in
-            Text(item.capturedAt.formatted(date: .abbreviated, time: .shortened))
+            NavigationLink {
+                CheckInDetailView(store: store, areaID: areaID, checkInID: item.id)
+            } label: {
+                Text(item.capturedAt.formatted(date: .abbreviated, time: .shortened))
+            }
         }
         .navigationTitle(store.areas.first { $0.id == areaID }?.name ?? "")
+        .toolbar {
+            if items.count >= 2 {
+                NavigationLink("Compare") {
+                    ComparisonView(checkIns: items) { filename in
+                        UIImage(contentsOfFile: store.imageURL(filename: filename).path)
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct CheckInDetailView: View {
+    @Bindable var store: JournalStoreModel
+    let areaID: UUID
+    let checkInID: UUID
+
+    var body: some View {
+        let checkIn = store.checkIns(areaID: areaID).first { $0.id == checkInID }
+        VStack {
+            if let checkIn, let uiImage = UIImage(contentsOfFile: store.imageURL(filename: checkIn.imageFilename).path) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFit()
+                    .overlay {
+                        BoxOverlay(boxes: visibleBoxes(checkIn.boxes.map(boxDraft)))
+                    }
+            }
+            if let checkIn {
+                ForEach(checkIn.boxes) { box in
+                    Button(box.hidden ? "Unhide box" : "Hide box") {
+                        store.setBoxHidden(boxID: box.id, hidden: !box.hidden)
+                    }
+                }
+            }
+        }
+    }
+
+    private func boxDraft(_ box: MoleBoxRecord) -> MoleBoxDraft {
+        MoleBoxDraft(
+            x: box.x, y: box.y, width: box.width, height: box.height,
+            confidence: box.confidence, label: box.label, hidden: box.hidden
+        )
     }
 }
