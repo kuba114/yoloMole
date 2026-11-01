@@ -12,13 +12,71 @@ targets:
     platform: iOS
     sources:
       - MoleJournal
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: com.yolomole.MoleJournal
-      GENERATE_INFOPLIST_FILE: YES
-      INFOPLIST_KEY_NSCameraUsageDescription: "The camera is required to photograph a body area."
-      INFOPLIST_KEY_UILaunchScreen_Generation: YES
-      CODE_SIGN_ENTITLEMENTS: MoleJournal/MoleJournal.entitlements
-      TARGETED_DEVICE_FAMILY: "1"
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yolomole.MoleJournal
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_NSCameraUsageDescription: "The camera is required to photograph a body area."
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+      configs:
+        Debug:
+          CODE_SIGN_ENTITLEMENTS: MoleJournal/MoleJournal.Debug.entitlements
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+        Release:
+          CODE_SIGN_ENTITLEMENTS: MoleJournal/MoleJournal.entitlements
+    postBuildScripts:
+      - name: Keep the testing sign-in out of Release
+        basedOnDependencyAnalysis: false
+        script: |
+          ENTITLEMENTS="${CODE_SIGN_ENTITLEMENTS:-}"
+          if [ -z "$ENTITLEMENTS" ]; then
+            echo "error: CODE_SIGN_ENTITLEMENTS is unset"
+            exit 1
+          fi
+          case "$ENTITLEMENTS" in
+            /*) ;;
+            *) ENTITLEMENTS="${SRCROOT}/${ENTITLEMENTS}" ;;
+          esac
+          if [ ! -f "$ENTITLEMENTS" ]; then
+            echo "error: entitlements file not found: $ENTITLEMENTS"
+            exit 1
+          fi
+          if [ "$CONFIGURATION" = "Debug" ]; then
+            if grep -q "com.apple.developer.applesignin" "$ENTITLEMENTS"; then
+              echo "error: Debug signing must not request Sign in with Apple"
+              exit 1
+            fi
+            exit 0
+          fi
+          if [ "$CONFIGURATION" = "Release" ]; then
+            if ! grep -q "com.apple.developer.applesignin" "$ENTITLEMENTS"; then
+              echo "error: Release signing must request Sign in with Apple"
+              exit 1
+            fi
+            BINARY="${TARGET_BUILD_DIR}/${WRAPPER_NAME}/${PRODUCT_NAME}"
+            if [ ! -f "$BINARY" ]; then
+              echo "error: Release binary not found: $BINARY"
+              exit 1
+            fi
+            if grep -a -q "Continue for Testing" "$BINARY"; then
+              echo "error: Continue for Testing is present in the Release binary"
+              exit 1
+            fi
+            if grep -a -q "debug.molejournal.testing" "$BINARY"; then
+              echo "error: debug testing identity is present in the Release binary"
+              exit 1
+            fi
+            if grep -a -q "MoleJournalDebug" "$BINARY"; then
+              echo "error: debug journal storage is present in the Release binary"
+              exit 1
+            fi
+          fi
+          exit 0
   MoleJournalTests:
     type: bundle.unit-test
     platform: iOS

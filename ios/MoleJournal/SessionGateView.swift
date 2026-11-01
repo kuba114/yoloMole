@@ -35,17 +35,36 @@ struct SessionGateView: View {
             VStack(spacing: 16) {
                 Text(Copy.lockedJournal)
                     .multilineTextAlignment(.center)
-                signInButton
+                signInControls
             }
             .padding()
         case .signedOut:
             VStack(spacing: 16) {
                 Text(Copy.signInDisclaimer)
                     .multilineTextAlignment(.center)
-                signInButton
+                signInControls
             }
             .padding()
         }
+    }
+
+    private var signInControls: some View {
+        VStack(spacing: 12) {
+            signInButton
+            debugContinueButton
+        }
+    }
+
+    @ViewBuilder
+    private var debugContinueButton: some View {
+        #if DEBUG
+        Button(DebugSignIn.continueTitle) {
+            let next = (try? store.beginSession(appleUserID: DebugSignIn.appleUserID, now: Date())) ?? .signedOut
+            session = next
+        }
+        #else
+        EmptyView()
+        #endif
     }
 
     private var signInButton: some View {
