@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftData
 import SwiftUI
 import UIKit
@@ -79,11 +80,26 @@ final class JournalStoreModel {
     func imageURL(filename: String) -> URL {
         store.imageURL(filename: filename)
     }
+
+    func saveCheckIn(areaID: UUID, upright: UprightImage, outcome: DetectionOutcome) {
+        _ = try? store.saveCheckIn(
+            areaID: areaID,
+            sessionAppleID: sessionAppleID,
+            jpeg: upright.jpeg,
+            pixelWidth: upright.width,
+            pixelHeight: upright.height,
+            boxes: outcome.boxes,
+            capturedAt: Date()
+        )
+        reload()
+    }
 }
 
 struct AreaDetailView: View {
     @Bindable var store: JournalStoreModel
     let areaID: UUID
+    @State private var showCapture = false
+    @State private var cameraDenied = false
 
     var body: some View {
         let items = store.checkIns(areaID: areaID)
@@ -96,6 +112,14 @@ struct AreaDetailView: View {
         }
         .navigationTitle(store.areas.first { $0.id == areaID }?.name ?? "")
         .toolbar {
+            Button("New check-in") {
+                let status = AVCaptureDevice.authorizationStatus(for: .video)
+                if status == .denied || status == .restricted {
+                    cameraDenied = true
+                } else {
+                    showCapture = true
+                }
+            }
             if items.count >= 2 {
                 NavigationLink("Compare") {
                     ComparisonView(checkIns: items) { filename in
@@ -103,6 +127,33 @@ struct AreaDetailView: View {
                     }
                 }
             }
+        }
+        .alert(Copy.cameraRequired, isPresented: $cameraDenied) {
+            Button("Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Close", role: .cancel) {}
+        }
+        .sheet(isPresented: $showCapture) {
+            let latest = items.first
+            CaptureFlowView(
+                previousImage: latest.flatMap {
+                    UIImage(contentsOfFile: store.imageURL(filename: $0.imageFilename).path)
+                },
+                previousFilename: latest?.imageFilename,
+                detector: CoreMLMoleDetector(),
+                onSave: { upright, outcome in
+                    store.saveCheckIn(areaID: areaID, upright: upright, outcome: outcome)
+                    showCapture = false
+                },
+                onCancel: { showCapture = false },
+                onCameraDenied: {
+                    showCapture = false
+                    cameraDenied = true
+                }
+            )
         }
     }
 }

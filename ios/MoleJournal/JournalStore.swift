@@ -127,6 +127,11 @@ final class JournalStore {
         return profile.appleUserID == sessionAppleID ? .signedIn : .locked
     }
 
+    func signedInAppleID() -> String? {
+        guard case .signedIn = restoreSession() else { return nil }
+        return sessionAppleID
+    }
+
     func createArea(name: String, now: Date) throws -> BodyAreaRecord {
         guard let sessionAppleID else { throw JournalError.wrongAppleID }
         try requireOwner(sessionAppleID)
