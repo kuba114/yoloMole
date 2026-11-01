@@ -107,7 +107,14 @@ struct AreaDetailView: View {
             NavigationLink {
                 CheckInDetailView(store: store, areaID: areaID, checkInID: item.id)
             } label: {
-                Text(item.capturedAt.formatted(date: .abbreviated, time: .shortened))
+                HStack(spacing: 12) {
+                    checkInThumbnail(item)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.capturedAt.formatted(date: .abbreviated, time: .shortened))
+                        Text(catalogMoleCount(item.boxes.map(\.label)))
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
         .navigationTitle(store.areas.first { $0.id == areaID }?.name ?? "")
@@ -154,6 +161,21 @@ struct AreaDetailView: View {
                     cameraDenied = true
                 }
             )
+        }
+    }
+
+    @ViewBuilder
+    private func checkInThumbnail(_ item: CheckInRecord) -> some View {
+        if let uiImage = UIImage(contentsOfFile: store.imageURL(filename: item.imageFilename).path) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 64, height: 64)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        } else {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(.quaternary)
+                .frame(width: 64, height: 64)
         }
     }
 }

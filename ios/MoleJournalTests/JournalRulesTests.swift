@@ -32,6 +32,12 @@ final class JournalRulesTests: XCTestCase {
         XCTAssertNotEqual(pair?.leftID, pair?.rightID)
     }
 
+    func testCatalogCountsEveryMoleIncludingHiddenOnes() {
+        XCTAssertEqual(catalogMoleCount([]), "0 moles")
+        XCTAssertEqual(catalogMoleCount(["Mole"]), "1 mole")
+        XCTAssertEqual(catalogMoleCount(["Mole", "Mole", "images"]), "2 moles")
+    }
+
     func testHiddenBoxesAreOmitted() {
         let shown = MoleBoxDraft(x: 0, y: 0, width: 0.1, height: 0.1, confidence: 0.4, label: "Mole", hidden: false)
         let hidden = MoleBoxDraft(x: 0.2, y: 0.2, width: 0.1, height: 0.1, confidence: 0.8, label: "Mole", hidden: true)

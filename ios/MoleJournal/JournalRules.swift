@@ -60,3 +60,8 @@ func defaultComparison(newestFirst: [UUID]) -> ComparisonSelection? {
 func visibleBoxes(_ boxes: [MoleBoxDraft]) -> [MoleBoxDraft] {
     boxes.filter { !$0.hidden }
 }
+
+func catalogMoleCount(_ labels: [String]) -> String {
+    let count = labels.filter { $0 == "Mole" }.count
+    return count == 1 ? "1 mole" : "\(count) moles"
+}
