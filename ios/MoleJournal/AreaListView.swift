@@ -220,13 +220,17 @@ struct CheckInDetailView: View {
                         .resizable()
                         .scaledToFit()
                         .overlay {
-                            BoxOverlay(boxes: boxesForReview(checkIn.boxes.map(boxDraft), section: section))
+                            BoxOverlay(boxes: boxesForReview(moleNumbers(checkIn.boxes.map(boxDraft)), section: section))
                         }
                 }
                 if let checkIn {
-                    ForEach(checkIn.boxes) { box in
-                        Button(box.hidden ? "Unhide box" : "Hide box") {
-                            store.setBoxHidden(boxID: box.id, hidden: !box.hidden)
+                    let numbered = moleNumbers(checkIn.boxes.map(boxDraft))
+                    ForEach(numbered) { item in
+                        HStack {
+                            MoleNumberLabel(number: item.number)
+                            Button(item.box.hidden ? "Unhide box" : "Hide box") {
+                                store.setBoxHidden(boxID: checkIn.boxes[item.index].id, hidden: !item.box.hidden)
+                            }
                         }
                     }
                 }

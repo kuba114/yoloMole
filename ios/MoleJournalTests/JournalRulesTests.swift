@@ -74,6 +74,17 @@ final class JournalRulesTests: XCTestCase {
         XCTAssertEqual(right[0].width, 0.2, accuracy: 0.0001)
     }
 
+    func testMoleNumbersRunTopToBottomThenLeftToRight() {
+        let lower = mole(x: 0.2, y: 0.6, width: 0.1, height: 0.1, hidden: false)
+        let upperRight = mole(x: 0.7, y: 0.2, width: 0.1, height: 0.1, hidden: false)
+        let upperLeft = mole(x: 0.1, y: 0.2, width: 0.1, height: 0.1, hidden: false)
+        let hidden = mole(x: 0.05, y: 0.05, width: 0.1, height: 0.1, hidden: true)
+        let numbered = moleNumbers([lower, upperRight, upperLeft, hidden])
+        XCTAssertEqual(numbered.map(\.number), [4, 3, 2, 1])
+        XCTAssertEqual(boxesForReview(numbered, section: .together).map(\.number), [4, 3, 2])
+        XCTAssertEqual(boxesForReview(numbered, section: .topLeft).map(\.number), [2])
+    }
+
     func testHiddenBoxesAreOmitted() {
         let shown = MoleBoxDraft(x: 0, y: 0, width: 0.1, height: 0.1, confidence: 0.4, label: "Mole", hidden: false)
         let hidden = MoleBoxDraft(x: 0.2, y: 0.2, width: 0.1, height: 0.1, confidence: 0.8, label: "Mole", hidden: true)

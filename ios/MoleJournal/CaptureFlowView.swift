@@ -111,12 +111,15 @@ struct CaptureFlowView: View {
                     .resizable()
                     .scaledToFit()
                     .overlay {
-                        BoxOverlay(boxes: visibleBoxes(drafts))
+                        BoxOverlay(boxes: boxesForReview(moleNumbers(drafts), section: .together))
                     }
             }
-            ForEach(drafts.indices, id: \.self) { index in
-                Button(drafts[index].hidden ? "Unhide box" : "Hide box") {
-                    drafts[index].hidden.toggle()
+            ForEach(moleNumbers(drafts)) { item in
+                HStack {
+                    MoleNumberLabel(number: item.number)
+                    Button(item.box.hidden ? "Unhide box" : "Hide box") {
+                        drafts[item.index].hidden.toggle()
+                    }
                 }
             }
             Button("Retake") {
@@ -159,13 +162,26 @@ private func uprightPhoto(_ image: UIImage) -> UIImage {
     }
 }
 
+struct MoleNumberLabel: View {
+    let number: Int
+
+    var body: some View {
+        Text("\(number)")
+            .font(.caption.bold())
+            .foregroundStyle(.white)
+            .frame(minWidth: 22, minHeight: 22)
+            .padding(.horizontal, 4)
+            .background(Color.black.opacity(0.75), in: Capsule())
+    }
+}
+
 struct BoxOverlay: View {
-    let boxes: [MoleBoxDraft]
+    let boxes: [NumberedMoleBox]
 
     var body: some View {
         GeometryReader { proxy in
-            ForEach(boxes.indices, id: \.self) { index in
-                let box = boxes[index]
+            ForEach(boxes) { item in
+                let box = item.box
                 Rectangle()
                     .stroke(Color.white, lineWidth: 2)
                     .frame(
@@ -176,8 +192,19 @@ struct BoxOverlay: View {
                         x: proxy.size.width * (box.x + box.width / 2),
                         y: proxy.size.height * (box.y + box.height / 2)
                     )
+                MoleNumberLabel(number: item.number)
+                    .position(x: moleNumberX(box, in: proxy.size), y: moleNumberY(box, in: proxy.size))
             }
         }
+    }
+
+    private func moleNumberX(_ box: MoleBoxDraft, in size: CGSize) -> CGFloat {
+        min(max(14, size.width * box.x + 14), max(14, size.width - 14))
+    }
+
+    private func moleNumberY(_ box: MoleBoxDraft, in size: CGSize) -> CGFloat {
+        let top = size.height * box.y
+        return top < 20 ? min(top + 14, max(14, size.height - 14)) : top - 14
     }
 }
 

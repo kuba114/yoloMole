@@ -108,10 +108,38 @@ func sectionRect(_ section: ReviewSection) -> NormalizedRect? {
     }
 }
 
+struct NumberedMoleBox: Equatable, Identifiable {
+    var number: Int
+    var index: Int
+    var box: MoleBoxDraft
+
+    var id: Int { number }
+}
+
+func moleNumbers(_ boxes: [MoleBoxDraft]) -> [NumberedMoleBox] {
+    let ranked = boxes.indices.sorted { lhs, rhs in
+        let a = boxes[lhs]
+        let b = boxes[rhs]
+        if a.y != b.y { return a.y < b.y }
+        if a.x != b.x { return a.x < b.x }
+        return lhs < rhs
+    }
+    var numbers = Array(repeating: 0, count: boxes.count)
+    for (rank, index) in ranked.enumerated() {
+        numbers[index] = rank + 1
+    }
+    return boxes.indices.map { NumberedMoleBox(number: numbers[$0], index: $0, box: boxes[$0]) }
+}
+
 func boxesForReview(_ boxes: [MoleBoxDraft], section: ReviewSection) -> [MoleBoxDraft] {
-    let visible = visibleBoxes(boxes)
+    boxesForReview(moleNumbers(boxes), section: section).map(\.box)
+}
+
+func boxesForReview(_ boxes: [NumberedMoleBox], section: ReviewSection) -> [NumberedMoleBox] {
+    let visible = boxes.filter { !$0.box.hidden }
     guard let rect = sectionRect(section) else { return visible }
-    return visible.compactMap { box in
+    return visible.compactMap { item in
+        let box = item.box
         let x1 = max(box.x, rect.x)
         let y1 = max(box.y, rect.y)
         let x2 = min(box.x + box.width, rect.x + rect.width)
@@ -122,6 +150,6 @@ func boxesForReview(_ boxes: [MoleBoxDraft], section: ReviewSection) -> [MoleBox
         clipped.y = (y1 - rect.y) / rect.height
         clipped.width = (x2 - x1) / rect.width
         clipped.height = (y2 - y1) / rect.height
-        return clipped
+        return NumberedMoleBox(number: item.number, index: item.index, box: clipped)
     }
 }

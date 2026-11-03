@@ -59,7 +59,7 @@ struct ComparisonView: View {
                     .resizable()
                     .scaledToFit()
                     .overlay {
-                        BoxOverlay(boxes: boxesForReview(checkIn.boxes.map(draft), section: section))
+                        BoxOverlay(boxes: boxesForReview(moleNumbers(checkIn.boxes.map(draft)), section: section))
                     }
             }
             if let checkIn {
