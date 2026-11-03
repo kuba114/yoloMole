@@ -38,9 +38,49 @@ final class JournalRulesTests: XCTestCase {
         XCTAssertEqual(catalogMoleCount(["Mole", "Mole", "images"]), "2 moles")
     }
 
+    func testTogetherKeepsVisibleBoxesInPlace() {
+        let shown = mole(x: 0.1, y: 0.2, width: 0.3, height: 0.4, hidden: false)
+        let hidden = mole(x: 0.1, y: 0.2, width: 0.3, height: 0.4, hidden: true)
+        XCTAssertEqual(boxesForReview([shown, hidden], section: .together), [shown])
+        XCTAssertEqual(ReviewSection.together.title, "Together")
+    }
+
+    func testSectionShowsOnlyItsMolesAtTheCroppedScale() {
+        let topLeft = mole(x: 0.1, y: 0.1, width: 0.2, height: 0.2, hidden: false)
+        let bottomRight = mole(x: 0.6, y: 0.7, width: 0.2, height: 0.1, hidden: false)
+        let hidden = mole(x: 0.1, y: 0.1, width: 0.1, height: 0.1, hidden: true)
+        let shown = boxesForReview([topLeft, bottomRight, hidden], section: .topLeft)
+        XCTAssertEqual(shown.count, 1)
+        XCTAssertEqual(shown[0].x, 0.2, accuracy: 0.0001)
+        XCTAssertEqual(shown[0].y, 0.2, accuracy: 0.0001)
+        XCTAssertEqual(shown[0].width, 0.4, accuracy: 0.0001)
+        XCTAssertEqual(shown[0].height, 0.4, accuracy: 0.0001)
+        XCTAssertEqual(ReviewSection.topLeft.title, "Top left")
+        XCTAssertEqual(ReviewSection.topRight.title, "Top right")
+        XCTAssertEqual(ReviewSection.bottomLeft.title, "Bottom left")
+        XCTAssertEqual(ReviewSection.bottomRight.title, "Bottom right")
+    }
+
+    func testSectionClipsAMoleThatCrossesTheBoundary() {
+        let crossing = mole(x: 0.4, y: 0.4, width: 0.2, height: 0.2, hidden: false)
+        let shown = boxesForReview([crossing], section: .topLeft)
+        XCTAssertEqual(shown.count, 1)
+        XCTAssertEqual(shown[0].x, 0.8, accuracy: 0.0001)
+        XCTAssertEqual(shown[0].y, 0.8, accuracy: 0.0001)
+        XCTAssertEqual(shown[0].width, 0.2, accuracy: 0.0001)
+        XCTAssertEqual(shown[0].height, 0.2, accuracy: 0.0001)
+        let right = boxesForReview([crossing], section: .topRight)
+        XCTAssertEqual(right[0].x, 0, accuracy: 0.0001)
+        XCTAssertEqual(right[0].width, 0.2, accuracy: 0.0001)
+    }
+
     func testHiddenBoxesAreOmitted() {
         let shown = MoleBoxDraft(x: 0, y: 0, width: 0.1, height: 0.1, confidence: 0.4, label: "Mole", hidden: false)
         let hidden = MoleBoxDraft(x: 0.2, y: 0.2, width: 0.1, height: 0.1, confidence: 0.8, label: "Mole", hidden: true)
         XCTAssertEqual(visibleBoxes([shown, hidden]), [shown])
+    }
+
+    private func mole(x: Double, y: Double, width: Double, height: Double, hidden: Bool) -> MoleBoxDraft {
+        MoleBoxDraft(x: x, y: y, width: width, height: height, confidence: 0.5, label: "Mole", hidden: hidden)
     }
 }

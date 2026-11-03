@@ -134,6 +134,31 @@ struct CaptureFlowView: View {
     }
 }
 
+func croppedPhoto(_ image: UIImage, section: ReviewSection) -> UIImage {
+    guard let rect = sectionRect(section) else { return image }
+    let upright = uprightPhoto(image)
+    guard let cgImage = upright.cgImage else { return image }
+    let crop = CGRect(
+        x: CGFloat(rect.x) * CGFloat(cgImage.width),
+        y: CGFloat(rect.y) * CGFloat(cgImage.height),
+        width: CGFloat(rect.width) * CGFloat(cgImage.width),
+        height: CGFloat(rect.height) * CGFloat(cgImage.height)
+    ).integral
+    guard crop.width >= 1, crop.height >= 1, let cropped = cgImage.cropping(to: crop) else { return image }
+    return UIImage(cgImage: cropped, scale: upright.scale, orientation: .up)
+}
+
+private func uprightPhoto(_ image: UIImage) -> UIImage {
+    guard image.imageOrientation != .up || image.cgImage == nil else { return image }
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = image.scale
+    format.opaque = true
+    let renderer = UIGraphicsImageRenderer(size: image.size, format: format)
+    return renderer.image { _ in
+        image.draw(in: CGRect(origin: .zero, size: image.size))
+    }
+}
+
 struct BoxOverlay: View {
     let boxes: [MoleBoxDraft]
 

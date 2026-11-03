@@ -180,29 +180,58 @@ struct AreaDetailView: View {
     }
 }
 
+struct ReviewSectionControl: View {
+    @Binding var section: ReviewSection
+
+    var body: some View {
+        VStack(spacing: 8) {
+            sectionButton(.together)
+            HStack(spacing: 8) {
+                sectionButton(.topLeft)
+                sectionButton(.topRight)
+            }
+            HStack(spacing: 8) {
+                sectionButton(.bottomLeft)
+                sectionButton(.bottomRight)
+            }
+        }
+        .buttonStyle(.bordered)
+    }
+
+    private func sectionButton(_ item: ReviewSection) -> some View {
+        Button(item.title) { section = item }
+            .tint(section == item ? Color.accentColor : Color.secondary)
+    }
+}
+
 struct CheckInDetailView: View {
     @Bindable var store: JournalStoreModel
     let areaID: UUID
     let checkInID: UUID
+    @State private var section = ReviewSection.together
 
     var body: some View {
         let checkIn = store.checkIns(areaID: areaID).first { $0.id == checkInID }
-        VStack {
-            if let checkIn, let uiImage = UIImage(contentsOfFile: store.imageURL(filename: checkIn.imageFilename).path) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFit()
-                    .overlay {
-                        BoxOverlay(boxes: visibleBoxes(checkIn.boxes.map(boxDraft)))
-                    }
-            }
-            if let checkIn {
-                ForEach(checkIn.boxes) { box in
-                    Button(box.hidden ? "Unhide box" : "Hide box") {
-                        store.setBoxHidden(boxID: box.id, hidden: !box.hidden)
+        ScrollView {
+            VStack(spacing: 16) {
+                ReviewSectionControl(section: $section)
+                if let checkIn, let uiImage = UIImage(contentsOfFile: store.imageURL(filename: checkIn.imageFilename).path) {
+                    Image(uiImage: croppedPhoto(uiImage, section: section))
+                        .resizable()
+                        .scaledToFit()
+                        .overlay {
+                            BoxOverlay(boxes: boxesForReview(checkIn.boxes.map(boxDraft), section: section))
+                        }
+                }
+                if let checkIn {
+                    ForEach(checkIn.boxes) { box in
+                        Button(box.hidden ? "Unhide box" : "Hide box") {
+                            store.setBoxHidden(boxID: box.id, hidden: !box.hidden)
+                        }
                     }
                 }
             }
+            .padding()
         }
     }
 

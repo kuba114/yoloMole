@@ -15,6 +15,7 @@ struct ComparisonView: View {
     let checkIns: [CheckInRecord]
     let image: (String) -> UIImage?
     @State private var selection: ComparisonSelection
+    @State private var section = ReviewSection.together
 
     init(checkIns: [CheckInRecord], image: @escaping (String) -> UIImage?) {
         self.checkIns = checkIns
@@ -28,21 +29,25 @@ struct ComparisonView: View {
 
     var body: some View {
         let ids = checkIns.map(\.id)
-        VStack {
-            HStack {
-                photo(id: selection.leftID)
-                photo(id: selection.rightID)
-            }
-            Picker("Left", selection: $selection.leftID) {
-                ForEach(choices(for: .left, selection: selection, newestFirst: ids), id: \.self) { id in
-                    Text(label(for: id)).tag(id)
+        ScrollView {
+            VStack {
+                ReviewSectionControl(section: $section)
+                HStack {
+                    photo(id: selection.leftID)
+                    photo(id: selection.rightID)
+                }
+                Picker("Left", selection: $selection.leftID) {
+                    ForEach(choices(for: .left, selection: selection, newestFirst: ids), id: \.self) { id in
+                        Text(label(for: id)).tag(id)
+                    }
+                }
+                Picker("Right", selection: $selection.rightID) {
+                    ForEach(choices(for: .right, selection: selection, newestFirst: ids), id: \.self) { id in
+                        Text(label(for: id)).tag(id)
+                    }
                 }
             }
-            Picker("Right", selection: $selection.rightID) {
-                ForEach(choices(for: .right, selection: selection, newestFirst: ids), id: \.self) { id in
-                    Text(label(for: id)).tag(id)
-                }
-            }
+            .padding()
         }
     }
 
@@ -50,11 +55,11 @@ struct ComparisonView: View {
         let checkIn = checkIns.first { $0.id == id }
         return VStack {
             if let checkIn, let uiImage = image(checkIn.imageFilename) {
-                Image(uiImage: uiImage)
+                Image(uiImage: croppedPhoto(uiImage, section: section))
                     .resizable()
                     .scaledToFit()
                     .overlay {
-                        BoxOverlay(boxes: visibleBoxes(checkIn.boxes.map(draft)))
+                        BoxOverlay(boxes: boxesForReview(checkIn.boxes.map(draft), section: section))
                     }
             }
             if let checkIn {

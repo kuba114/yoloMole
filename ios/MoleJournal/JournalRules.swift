@@ -65,3 +65,63 @@ func catalogMoleCount(_ labels: [String]) -> String {
     let count = labels.filter { $0 == "Mole" }.count
     return count == 1 ? "1 mole" : "\(count) moles"
 }
+
+enum ReviewSection: String, CaseIterable, Identifiable, Hashable {
+    case together
+    case topLeft
+    case topRight
+    case bottomLeft
+    case bottomRight
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .together: "Together"
+        case .topLeft: "Top left"
+        case .topRight: "Top right"
+        case .bottomLeft: "Bottom left"
+        case .bottomRight: "Bottom right"
+        }
+    }
+}
+
+struct NormalizedRect: Equatable {
+    var x: Double
+    var y: Double
+    var width: Double
+    var height: Double
+}
+
+func sectionRect(_ section: ReviewSection) -> NormalizedRect? {
+    switch section {
+    case .together:
+        nil
+    case .topLeft:
+        NormalizedRect(x: 0, y: 0, width: 0.5, height: 0.5)
+    case .topRight:
+        NormalizedRect(x: 0.5, y: 0, width: 0.5, height: 0.5)
+    case .bottomLeft:
+        NormalizedRect(x: 0, y: 0.5, width: 0.5, height: 0.5)
+    case .bottomRight:
+        NormalizedRect(x: 0.5, y: 0.5, width: 0.5, height: 0.5)
+    }
+}
+
+func boxesForReview(_ boxes: [MoleBoxDraft], section: ReviewSection) -> [MoleBoxDraft] {
+    let visible = visibleBoxes(boxes)
+    guard let rect = sectionRect(section) else { return visible }
+    return visible.compactMap { box in
+        let x1 = max(box.x, rect.x)
+        let y1 = max(box.y, rect.y)
+        let x2 = min(box.x + box.width, rect.x + rect.width)
+        let y2 = min(box.y + box.height, rect.y + rect.height)
+        guard x2 > x1, y2 > y1 else { return nil }
+        var clipped = box
+        clipped.x = (x1 - rect.x) / rect.width
+        clipped.y = (y1 - rect.y) / rect.height
+        clipped.width = (x2 - x1) / rect.width
+        clipped.height = (y2 - y1) / rect.height
+        return clipped
+    }
+}
