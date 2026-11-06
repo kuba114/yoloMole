@@ -6,9 +6,6 @@ options:
 settings:
   SWIFT_VERSION: "5.0"
   IPHONEOS_DEPLOYMENT_TARGET: "17.0"
-  configs:
-    Debug:
-      SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG"
 targets:
   MoleJournal:
     type: application
@@ -29,7 +26,7 @@ targets:
       configs:
         Debug:
           CODE_SIGN_ENTITLEMENTS: MoleJournal/MoleJournal.Debug.entitlements
-          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG"
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
         Release:
           CODE_SIGN_ENTITLEMENTS: MoleJournal/MoleJournal.entitlements
     postBuildScripts:
@@ -91,3 +88,21 @@ targets:
       GENERATE_INFOPLIST_FILE: YES
       TEST_HOST: "$(BUILT_PRODUCTS_DIR)/MoleJournal.app/MoleJournal"
       BUNDLE_LOADER: "$(TEST_HOST)"
+schemes:
+  MoleJournal:
+    build:
+      targets:
+        MoleJournal: all
+        MoleJournalTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - MoleJournalTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

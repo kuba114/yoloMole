@@ -39,38 +39,31 @@ struct SessionGateView: View {
     }
 
     private func signInScreen(message: String) -> some View {
-        VStack(spacing: 24) {
-            Spacer(minLength: 0)
+        VStack(spacing: 20) {
             Text(message)
                 .multilineTextAlignment(.center)
-            signInControls
-            Spacer(minLength: 0)
-        }
-        .padding()
-    }
-
-    private var signInControls: some View {
-        VStack(spacing: 16) {
+                .fixedSize(horizontal: false, vertical: true)
             debugContinueButton
             signInButton
         }
-        .frame(maxWidth: 320)
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
-    @ViewBuilder
+    #if DEBUG
     private var debugContinueButton: some View {
-        #if DEBUG
         Button(DebugSignIn.continueTitle) {
             let next = (try? store.beginSession(appleUserID: DebugSignIn.appleUserID, now: Date())) ?? .signedOut
             session = next
         }
         .buttonStyle(.borderedProminent)
-        .frame(maxWidth: .infinity)
-        .frame(height: 44)
-        #else
-        EmptyView()
-        #endif
+        .frame(width: 280, height: 44)
     }
+    #else
+    private var debugContinueButton: some View {
+        EmptyView()
+    }
+    #endif
 
     private var signInButton: some View {
         SignInWithAppleButton(.signIn) { request in
@@ -85,8 +78,8 @@ struct SessionGateView: View {
                 session = sessionAfterAppleResult(.cancel, current: session)
             }
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 44)
+        .signInWithAppleButtonStyle(.black)
+        .frame(width: 280, height: 44)
     }
 
     @ViewBuilder
