@@ -14,6 +14,7 @@ struct CaptureFlowView: View {
     @State private var accepted: UprightImage?
     @State private var outcome = DetectionOutcome(boxes: [], outlinesUnavailable: false)
     @State private var drafts: [MoleBoxDraft] = []
+    @State private var crop = CropRect.full
     @StateObject private var cameraSession = CameraSession()
 
     init(
@@ -86,6 +87,7 @@ struct CaptureFlowView: View {
                         accepted = upright
                         outcome = detector.detect(jpeg: upright.jpeg)
                         drafts = outcome.boxes
+                        crop = .full
                         step.phase = .review
                         cameraSession.stop()
                     }
@@ -106,6 +108,8 @@ struct CaptureFlowView: View {
             if let message = reviewMessage(outcome) {
                 Text(message)
             }
+            Text("Drag the edges to remove background.")
+                .multilineTextAlignment(.center)
             if let accepted, let image = UIImage(data: accepted.jpeg) {
                 Image(uiImage: image)
                     .resizable()
@@ -113,8 +117,11 @@ struct CaptureFlowView: View {
                     .overlay {
                         BoxOverlay(boxes: boxesForReview(moleNumbers(drafts), section: .together))
                     }
+                    .overlay {
+                        CropEdges(crop: $crop)
+                    }
             }
-            ForEach(moleNumbers(drafts)) { item in
+            ForEach(moleNumbers(drafts).filter { clipBox($0.box, to: crop.rect) != nil }) { item in
                 HStack {
                     MoleNumberLabel(number: item.number)
                     Button(item.box.hidden ? "Unhide box" : "Hide box") {
@@ -125,15 +132,130 @@ struct CaptureFlowView: View {
             Button("Retake") {
                 accepted = nil
                 drafts = []
+                crop = .full
                 outcome = DetectionOutcome(boxes: [], outlinesUnavailable: false)
                 step = advanceToCamera(initialCaptureStep(previousImageFilename: previousFilename))
             }
             Button("Save") {
-                guard let accepted else { return }
-                onSave(accepted, DetectionOutcome(boxes: drafts, outlinesUnavailable: outcome.outlinesUnavailable))
+                guard let accepted, let cropped = croppedUprightImage(accepted, crop: crop) else { return }
+                onSave(
+                    cropped,
+                    DetectionOutcome(
+                        boxes: boxesKeptByCrop(drafts, crop: crop),
+                        outlinesUnavailable: outcome.outlinesUnavailable
+                    )
+                )
             }
             Button("Cancel", action: onCancel)
         }
+        .padding()
+    }
+}
+
+private struct CropEdges: View {
+    @Binding var crop: CropRect
+
+    var body: some View {
+        GeometryReader { proxy in
+            let size = proxy.size
+            ZStack {
+                CropDimming(crop: crop, size: size)
+                Rectangle()
+                    .stroke(Color.white, lineWidth: 2)
+                    .frame(
+                        width: size.width * (crop.right - crop.left),
+                        height: size.height * (crop.bottom - crop.top)
+                    )
+                    .position(
+                        x: size.width * (crop.left + crop.right) / 2,
+                        y: size.height * (crop.top + crop.bottom) / 2
+                    )
+                    .allowsHitTesting(false)
+                cropHandle(.top, size: size)
+                cropHandle(.bottom, size: size)
+                cropHandle(.left, size: size)
+                cropHandle(.right, size: size)
+            }
+            .frame(width: size.width, height: size.height)
+            .coordinateSpace(name: "crop")
+        }
+    }
+
+    private func cropHandle(_ edge: CropEdge, size: CGSize) -> some View {
+        let vertical = edge == .left || edge == .right
+        let span = vertical ? size.height * (crop.bottom - crop.top) : size.width * (crop.right - crop.left)
+        return Color.clear
+            .frame(width: vertical ? 32 : max(span, 32), height: vertical ? max(span, 32) : 32)
+            .overlay {
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(width: vertical ? 3 : nil, height: vertical ? nil : 3)
+            }
+            .position(handleCenter(edge, size: size))
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .named("crop"))
+                    .onChanged { value in
+                        guard size.width > 0, size.height > 0 else { return }
+                        let position = vertical ? value.location.x / size.width : value.location.y / size.height
+                        crop = movedCrop(crop, edge: edge, to: position)
+                    }
+            )
+    }
+
+    private func handleCenter(_ edge: CropEdge, size: CGSize) -> CGPoint {
+        switch edge {
+        case .left:
+            CGPoint(x: size.width * crop.left, y: size.height * (crop.top + crop.bottom) / 2)
+        case .right:
+            CGPoint(x: size.width * crop.right, y: size.height * (crop.top + crop.bottom) / 2)
+        case .top:
+            CGPoint(x: size.width * (crop.left + crop.right) / 2, y: size.height * crop.top)
+        case .bottom:
+            CGPoint(x: size.width * (crop.left + crop.right) / 2, y: size.height * crop.bottom)
+        }
+    }
+}
+
+private struct CropDimming: View {
+    let crop: CropRect
+    let size: CGSize
+
+    var body: some View {
+        let width = size.width
+        let height = size.height
+        ZStack {
+            shade(
+                width: width,
+                height: height * crop.top,
+                x: width / 2,
+                y: height * crop.top / 2
+            )
+            shade(
+                width: width,
+                height: height * (1 - crop.bottom),
+                x: width / 2,
+                y: height * (crop.bottom + 1) / 2
+            )
+            shade(
+                width: width * crop.left,
+                height: height * (crop.bottom - crop.top),
+                x: width * crop.left / 2,
+                y: height * (crop.top + crop.bottom) / 2
+            )
+            shade(
+                width: width * (1 - crop.right),
+                height: height * (crop.bottom - crop.top),
+                x: width * (crop.right + 1) / 2,
+                y: height * (crop.top + crop.bottom) / 2
+            )
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func shade(width: CGFloat, height: CGFloat, x: CGFloat, y: CGFloat) -> some View {
+        Color.black.opacity(0.55)
+            .frame(width: max(width, 0), height: max(height, 0))
+            .position(x: x, y: y)
     }
 }
 

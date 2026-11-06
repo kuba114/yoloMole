@@ -85,6 +85,28 @@ final class JournalRulesTests: XCTestCase {
         XCTAssertEqual(boxesForReview(numbered, section: .topLeft).map(\.number), [2])
     }
 
+    func testCropKeepsMolesInsideAndRemapsThem() {
+        let inside = mole(x: 0.4, y: 0.1, width: 0.2, height: 0.1, hidden: false)
+        let outside = mole(x: 0.0, y: 0.1, width: 0.1, height: 0.1, hidden: false)
+        let hidden = mole(x: 0.5, y: 0.2, width: 0.1, height: 0.1, hidden: true)
+        let crop = CropRect(left: 0.25, top: 0, right: 0.75, bottom: 1)
+        let kept = boxesKeptByCrop([inside, outside, hidden], crop: crop)
+        XCTAssertEqual(kept.count, 2)
+        XCTAssertEqual(kept[0].x, 0.3, accuracy: 0.0001)
+        XCTAssertEqual(kept[0].y, 0.1, accuracy: 0.0001)
+        XCTAssertEqual(kept[0].width, 0.4, accuracy: 0.0001)
+        XCTAssertEqual(kept[0].height, 0.1, accuracy: 0.0001)
+        XCTAssertFalse(kept[0].hidden)
+        XCTAssertTrue(kept[1].hidden)
+    }
+
+    func testCropEdgeStopsAtTheMinimumSpan() {
+        XCTAssertEqual(movedCrop(.full, edge: .left, to: 0.95).left, 0.8, accuracy: 0.0001)
+        XCTAssertEqual(movedCrop(.full, edge: .left, to: -0.2).left, 0, accuracy: 0.0001)
+        XCTAssertEqual(movedCrop(.full, edge: .bottom, to: 0.05).bottom, 0.2, accuracy: 0.0001)
+        XCTAssertEqual(movedCrop(.full, edge: .right, to: 0.4).right, 0.4, accuracy: 0.0001)
+    }
+
     func testHiddenBoxesAreOmitted() {
         let shown = MoleBoxDraft(x: 0, y: 0, width: 0.1, height: 0.1, confidence: 0.4, label: "Mole", hidden: false)
         let hidden = MoleBoxDraft(x: 0.2, y: 0.2, width: 0.1, height: 0.1, confidence: 0.8, label: "Mole", hidden: true)

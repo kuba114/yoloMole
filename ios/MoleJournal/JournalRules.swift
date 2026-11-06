@@ -139,17 +139,61 @@ func boxesForReview(_ boxes: [NumberedMoleBox], section: ReviewSection) -> [Numb
     let visible = boxes.filter { !$0.box.hidden }
     guard let rect = sectionRect(section) else { return visible }
     return visible.compactMap { item in
-        let box = item.box
-        let x1 = max(box.x, rect.x)
-        let y1 = max(box.y, rect.y)
-        let x2 = min(box.x + box.width, rect.x + rect.width)
-        let y2 = min(box.y + box.height, rect.y + rect.height)
-        guard x2 > x1, y2 > y1 else { return nil }
-        var clipped = box
-        clipped.x = (x1 - rect.x) / rect.width
-        clipped.y = (y1 - rect.y) / rect.height
-        clipped.width = (x2 - x1) / rect.width
-        clipped.height = (y2 - y1) / rect.height
+        guard let clipped = clipBox(item.box, to: rect) else { return nil }
         return NumberedMoleBox(number: item.number, index: item.index, box: clipped)
     }
+}
+
+enum CropEdge {
+    case left
+    case right
+    case top
+    case bottom
+}
+
+struct CropRect: Equatable {
+    var left: Double
+    var top: Double
+    var right: Double
+    var bottom: Double
+
+    static let full = CropRect(left: 0, top: 0, right: 1, bottom: 1)
+
+    var rect: NormalizedRect {
+        NormalizedRect(x: left, y: top, width: right - left, height: bottom - top)
+    }
+}
+
+func movedCrop(_ crop: CropRect, edge: CropEdge, to position: Double, minimumSpan: Double = 0.2) -> CropRect {
+    let position = min(max(position, 0), 1)
+    var next = crop
+    switch edge {
+    case .left:
+        next.left = min(position, crop.right - minimumSpan)
+    case .right:
+        next.right = max(position, crop.left + minimumSpan)
+    case .top:
+        next.top = min(position, crop.bottom - minimumSpan)
+    case .bottom:
+        next.bottom = max(position, crop.top + minimumSpan)
+    }
+    return next
+}
+
+func clipBox(_ box: MoleBoxDraft, to rect: NormalizedRect) -> MoleBoxDraft? {
+    let x1 = max(box.x, rect.x)
+    let y1 = max(box.y, rect.y)
+    let x2 = min(box.x + box.width, rect.x + rect.width)
+    let y2 = min(box.y + box.height, rect.y + rect.height)
+    guard x2 > x1, y2 > y1, rect.width > 0, rect.height > 0 else { return nil }
+    var clipped = box
+    clipped.x = (x1 - rect.x) / rect.width
+    clipped.y = (y1 - rect.y) / rect.height
+    clipped.width = (x2 - x1) / rect.width
+    clipped.height = (y2 - y1) / rect.height
+    return clipped
+}
+
+func boxesKeptByCrop(_ boxes: [MoleBoxDraft], crop: CropRect) -> [MoleBoxDraft] {
+    boxes.compactMap { clipBox($0, to: crop.rect) }
 }
