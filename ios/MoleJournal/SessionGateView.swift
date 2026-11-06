@@ -29,30 +29,32 @@ struct SessionGateView: View {
 
     var body: some View {
         switch session {
-        case .signedIn:
+        case .signedIn where currentProfileID() != nil:
             signedIn
         case .locked:
-            VStack(spacing: 16) {
-                Text(Copy.lockedJournal)
-                    .multilineTextAlignment(.center)
-                signInControls
-            }
-            .padding()
-        case .signedOut:
-            VStack(spacing: 16) {
-                Text(Copy.signInDisclaimer)
-                    .multilineTextAlignment(.center)
-                signInControls
-            }
-            .padding()
+            signInScreen(message: Copy.lockedJournal)
+        case .signedIn, .signedOut:
+            signInScreen(message: Copy.signInDisclaimer)
         }
     }
 
-    private var signInControls: some View {
-        VStack(spacing: 12) {
-            signInButton
-            debugContinueButton
+    private func signInScreen(message: String) -> some View {
+        VStack(spacing: 24) {
+            Spacer(minLength: 0)
+            Text(message)
+                .multilineTextAlignment(.center)
+            signInControls
+            Spacer(minLength: 0)
         }
+        .padding()
+    }
+
+    private var signInControls: some View {
+        VStack(spacing: 16) {
+            debugContinueButton
+            signInButton
+        }
+        .frame(maxWidth: 320)
     }
 
     @ViewBuilder
@@ -62,6 +64,9 @@ struct SessionGateView: View {
             let next = (try? store.beginSession(appleUserID: DebugSignIn.appleUserID, now: Date())) ?? .signedOut
             session = next
         }
+        .buttonStyle(.borderedProminent)
+        .frame(maxWidth: .infinity)
+        .frame(height: 44)
         #else
         EmptyView()
         #endif
@@ -80,6 +85,7 @@ struct SessionGateView: View {
                 session = sessionAfterAppleResult(.cancel, current: session)
             }
         }
+        .frame(maxWidth: .infinity)
         .frame(height: 44)
     }
 

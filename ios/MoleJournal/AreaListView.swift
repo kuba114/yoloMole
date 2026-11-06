@@ -38,8 +38,12 @@ struct AreaListView: View {
             }
             .navigationTitle("Body areas")
             .toolbar {
-                Button("Sign out", action: onSignOut)
-                Button("Delete account", action: onDeleteAccount)
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Sign out", action: onSignOut)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Delete account", action: onDeleteAccount)
+                }
             }
         }
     }
