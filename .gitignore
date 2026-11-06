@@ -236,3 +236,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Mole journal model gate
+model-check/images/
+*.mlpackage
+
+# Personal Team id for device builds
+ios/Config/Local.xcconfig

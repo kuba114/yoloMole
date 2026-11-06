@@ -1,0 +1,2 @@
+// Copy Local.xcconfig.example to Local.xcconfig and set your Personal Team id.
+#include? "Local.xcconfig"
