@@ -11,7 +11,7 @@ A native iPhone app for keeping a private photo log of named body areas. The per
 - The first check-in uses the camera with a short framing note. Later check-ins show the previous photo, then keep that photo at 40% opacity, aspect-fit and centered, over the live camera while the person matches the pose.
 - Sign in with Apple unlocks the app. Photos stay on the phone. A second phone with the same Apple ID starts empty.
 - Detection runs on the device from a Core ML export of `yolo26s-mole-800px.pt`. The phone does not call `yolo-api`.
-- Boxes at confidence 0.30 or higher are kept. The label stored for each box is `Mole`. Confidence is stored and is not shown.
+- A new photo is sliced and merged as described in `2026-11-06-sahi-slicing-design.md`. Mole boxes at confidence 0.40 or higher are kept. The label stored for each box is `Mole`. Confidence is stored and is not shown.
 - Version 1 has no cloud backup, per-mole timelines, sharing, Android app, millimeter estimates, or clinical advice.
 
 The sign-in screen includes this sentence: “A personal photo log of skin areas. It does not diagnose.”

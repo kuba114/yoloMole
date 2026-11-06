@@ -155,69 +155,114 @@ struct CoreMLMoleDetector: MoleDetecting {
             let mlModel = try? MLModel(contentsOf: modelURL),
             let visionModel = try? VNCoreMLModel(for: mlModel),
             let source = CGImageSourceCreateWithData(jpeg as CFData, nil),
-            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+            let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+            image.width > 0, image.height > 0
         else {
             return DetectionOutcome(boxes: [], outlinesUnavailable: true)
         }
         let input = modelInputSize(mlModel)
-        guard let letterboxed = letterboxedImage(image, modelWidth: input.width, modelHeight: input.height) else {
+        let windows = sliceWindows(
+            imageWidth: image.width,
+            imageHeight: image.height,
+            sliceWidth: input.width,
+            sliceHeight: input.height
+        )
+        guard !windows.isEmpty else {
             return DetectionOutcome(boxes: [], outlinesUnavailable: true)
         }
-        let request = VNCoreMLRequest(model: visionModel)
-        request.imageCropAndScaleOption = .scaleFill
-        let handler = VNImageRequestHandler(cgImage: letterboxed, orientation: .up)
-        do {
-            try handler.perform([request])
-        } catch {
-            return DetectionOutcome(boxes: [], outlinesUnavailable: true)
-        }
-        let arrays = request.results?.compactMap {
-            ($0 as? VNCoreMLFeatureValueObservation)?.featureValue.multiArrayValue
-        } ?? []
-        if let rows = arrays.compactMap(endToEndRows).first {
-            return DetectionOutcome(
-                boxes: moleBoxesFromEndToEnd(
-                    rows: rows,
-                    modelWidth: input.width,
-                    modelHeight: input.height,
-                    imageWidth: image.width,
-                    imageHeight: image.height
-                ),
-                outlinesUnavailable: false
-            )
-        }
-        let observations = request.results?.compactMap { $0 as? VNRecognizedObjectObservation } ?? []
-        guard !observations.isEmpty else {
-            return DetectionOutcome(boxes: [], outlinesUnavailable: true)
-        }
-        let rows = observations.map { observation in
-            let rect = topLeftRect(
-                visionMinX: observation.boundingBox.minX,
-                visionMinY: observation.boundingBox.minY,
-                visionWidth: observation.boundingBox.width,
-                visionHeight: observation.boundingBox.height
-            )
-            let pixels = scaleModelBox(
-                x1: rect.x * Double(input.width),
-                y1: rect.y * Double(input.height),
-                x2: (rect.x + rect.width) * Double(input.width),
-                y2: (rect.y + rect.height) * Double(input.height),
+        var found: [SliceBox] = []
+        for window in windows {
+            switch readSlice(
+                image: image,
+                window: window,
+                visionModel: visionModel,
                 modelWidth: input.width,
-                modelHeight: input.height,
-                imageWidth: image.width,
-                imageHeight: image.height
-            )
-            return (
-                label: observation.labels.first?.identifier ?? "",
-                confidence: Double(observation.confidence),
-                x: pixels.x1 / Double(image.width),
-                y: pixels.y1 / Double(image.height),
-                width: (pixels.x2 - pixels.x1) / Double(image.width),
-                height: (pixels.y2 - pixels.y1) / Double(image.height)
-            )
+                modelHeight: input.height
+            ) {
+            case .failed:
+                return DetectionOutcome(boxes: [], outlinesUnavailable: true)
+            case .found(let boxes):
+                found.append(contentsOf: boxes)
+            }
         }
-        return DetectionOutcome(boxes: keepMoleObservations(rows), outlinesUnavailable: false)
+        return DetectionOutcome(
+            boxes: moleDrafts(from: greedyNMM(found), imageWidth: image.width, imageHeight: image.height),
+            outlinesUnavailable: false
+        )
     }
+}
+
+private enum SliceRead {
+    case found([SliceBox])
+    case failed
+}
+
+private func readSlice(
+    image: CGImage,
+    window: SliceWindow,
+    visionModel: VNCoreMLModel,
+    modelWidth: Int,
+    modelHeight: Int
+) -> SliceRead {
+    let cropWidth = window.maxX - window.minX
+    let cropHeight = window.maxY - window.minY
+    guard
+        cropWidth >= 1, cropHeight >= 1,
+        let crop = image.cropping(to: CGRect(x: window.minX, y: window.minY, width: cropWidth, height: cropHeight)),
+        let letterboxed = letterboxedImage(crop, modelWidth: modelWidth, modelHeight: modelHeight)
+    else {
+        return .failed
+    }
+    let request = VNCoreMLRequest(model: visionModel)
+    request.imageCropAndScaleOption = .scaleFill
+    let handler = VNImageRequestHandler(cgImage: letterboxed, orientation: .up)
+    do {
+        try handler.perform([request])
+    } catch {
+        return .failed
+    }
+    let arrays = request.results?.compactMap {
+        ($0 as? VNCoreMLFeatureValueObservation)?.featureValue.multiArrayValue
+    } ?? []
+    if let rows = arrays.compactMap(endToEndRows).first {
+        return .found(sliceBoxesFromEndToEnd(
+            rows: rows,
+            modelWidth: modelWidth,
+            modelHeight: modelHeight,
+            cropWidth: crop.width,
+            cropHeight: crop.height,
+            originX: window.minX,
+            originY: window.minY
+        ))
+    }
+    let observations = request.results?.compactMap { $0 as? VNRecognizedObjectObservation } ?? []
+    guard !observations.isEmpty else { return .failed }
+    let boxes = observations.compactMap { observation -> SliceBox? in
+        guard observation.labels.first?.identifier == "Mole", observation.confidence >= 0.40 else { return nil }
+        let rect = topLeftRect(
+            visionMinX: observation.boundingBox.minX,
+            visionMinY: observation.boundingBox.minY,
+            visionWidth: observation.boundingBox.width,
+            visionHeight: observation.boundingBox.height
+        )
+        let pixels = scaleModelBox(
+            x1: rect.x * Double(modelWidth),
+            y1: rect.y * Double(modelHeight),
+            x2: (rect.x + rect.width) * Double(modelWidth),
+            y2: (rect.y + rect.height) * Double(modelHeight),
+            modelWidth: modelWidth,
+            modelHeight: modelHeight,
+            imageWidth: crop.width,
+            imageHeight: crop.height
+        )
+        guard pixels.x2 > pixels.x1, pixels.y2 > pixels.y1 else { return nil }
+        return shiftSliceBox(
+            SliceBox(x1: pixels.x1, y1: pixels.y1, x2: pixels.x2, y2: pixels.y2, score: Double(observation.confidence)),
+            originX: window.minX,
+            originY: window.minY
+        )
+    }
+    return .found(boxes)
 }
 
 private func modelInputSize(_ model: MLModel) -> (width: Int, height: Int) {
